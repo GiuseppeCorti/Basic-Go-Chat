@@ -53,7 +53,6 @@ func formatUpdMsg(upd string) string {
 	return "Message from " + fields[2] + " at " + fields[1] + ": " + fields[0]
 }
 
-
 func checkinput() {
 
 	input := bufio.NewScanner(os.Stdin)
@@ -104,8 +103,13 @@ func readStream(strm *http.Response, chSsnId chan<- string, chEndStream chan<- b
 
 func listen(upd chan string) {
 	var text string
+	var ok bool
 	for {
-		text = <- upd
+		text, ok = <-upd
+		if !ok {
+			fmt.Println("Receiving updates stopped ... ")
+			break
+		}
 		fmt.Println(" - " + text + ".")
 	}
 
@@ -135,7 +139,7 @@ func main() {
 		}
 
 		LightstreamerClient.Subscribe("chat_room", "message timestamp IP", "DISTINCT")
-		go listen( LightstreamerClient.ListenUpdates() )
+		go listen(LightstreamerClient.ListenUpdates())
 		send_flag = true
 		go checkinput()
 
