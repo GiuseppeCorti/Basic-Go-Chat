@@ -62,7 +62,7 @@ func formatUpdMsg(upd string) string {
 
 func readStream(strm *http.Response, chSsnId chan<- string, chEndStream chan<- bool) {
 	scanner := bufio.NewScanner(strm.Body)
-	updInfo = make(chan string)
+	updInfo = make(chan string, 100)
 	for scanner.Scan() {
 		text := scanner.Text()
 		ptr := strings.Index(text, "CONOK,")
@@ -84,6 +84,7 @@ func readStream(strm *http.Response, chSsnId chan<- string, chEndStream chan<- b
 	}
 
 	chEndStream <- true
+	close(updInfo)
 	fmt.Println("Stream End.")
 }
 
