@@ -148,6 +148,32 @@ func Subscribe(itemList string, fieldList string, mode string) {
 	defer resp2.Body.Close()
 }
 
+func Disconnect() bool {
+	fmt.Fprintf(os.Stdout, "Disconnetion ... ");
+	
+	// LS_session=Sd9fce58fb5dbbebfT2255126&LS_reqId=6&LS_op=destroy
+	destroy := url.Values{}
+	destroy.Add("LS_op", "destroy")
+	destroy.Add("LS_session", sessionId)
+	destroy.Add("LS_reqId", strconv.Itoa(reqId))
+
+	reqD, err := http.NewRequest("POST", "http://"+Hostname+ControlUrl+protocolVersion, strings.NewReader(destroy.Encode()))
+	reqD.PostForm = destroy
+	reqD.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	client := &http.Client{}
+
+	respD, err := client.Do(reqD)
+
+	reqId++
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer respD.Body.Close()
+	return true
+}
+
 func Connect(chEndStream chan<- bool) bool {
 
 	fmt.Fprintf(os.Stdout, "Try no. %d.", retryCount)
