@@ -17,7 +17,6 @@ const (
 	MessageUrl      = "/lightstreamer/msg.txt?LS_protocol=" + protocolVersion
 	protocolVersion = "TLCP-2.1.0"
 	lsCid           = "mgQkwtwdysogQz2BJ4Ji kOj2Bg"
-	subId           = "334300121"
 )
 
 var sessionId string
@@ -28,6 +27,7 @@ var LsDataAdapter string
 var streaming *http.Response
 var reqId = 1
 var msgId = 1
+var subId = 1000
 var deltaField1 string
 var deltaField2 string
 var deltaField0 string
@@ -73,9 +73,10 @@ func readStream(strm *http.Response, chSsnId chan<- string, chEndStream chan<- b
 			if ptr2 > -1 {
 				fmt.Println("SUBOK.")
 			} else {
-				ptr3 := strings.Index(text, "U,"+subId)
+				ptr3 := strings.Index(text, "U,"+strconv.Itoa(subId))
 				if ptr3 > -1 {
-					updInfo <- formatUpdMsg(text[14:])
+					prefixLen := len("U,"+strconv.Itoa(subId)) + 3
+					updInfo <- formatUpdMsg(text[prefixLen:])
 				}
 			}
 		}
@@ -121,10 +122,12 @@ func SendMessage(msg string) {
 
 }
 
-func Subscribe(itemList string, fieldList string, mode string) {
+func Subscribe(itemList string, fieldList string, mode string) int {
+	subId++
+
 	sub := url.Values{}
 	sub.Add("LS_op", "add")
-	sub.Add("LS_subId", subId)
+	sub.Add("LS_subId", strconv.Itoa(subId))
 	sub.Add("LS_data_adapter", LsDataAdapter)
 	sub.Add("LS_group", itemList)
 	sub.Add("LS_schema", fieldList)
@@ -143,14 +146,18 @@ func Subscribe(itemList string, fieldList string, mode string) {
 
 	if err != nil {
 		panic(err)
+
+		return -1
 	}
 
 	defer resp2.Body.Close()
+
+	return subId
 }
 
 func Disconnect() bool {
-	fmt.Fprintf(os.Stdout, "Disconnetion ... ");
-	
+	fmt.Fprintf(os.Stdout, "Disconnetion ... ")
+
 	// LS_session=Sd9fce58fb5dbbebfT2255126&LS_reqId=6&LS_op=destroy
 	destroy := url.Values{}
 	destroy.Add("LS_op", "destroy")
