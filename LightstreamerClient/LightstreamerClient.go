@@ -33,6 +33,9 @@ var deltaField2 string
 var deltaField0 string
 var updInfo chan string
 
+// Subscriptions Map
+var subsM map[int](chan string)
+
 func formatUpdMsg(upd string) string {
 	// ...
 	fields := strings.Split(upd, "|")
@@ -75,6 +78,12 @@ func readStream(strm *http.Response, chSsnId chan<- string, chEndStream chan<- b
 			} else {
 				ptr3 := strings.Index(text, "U,"+strconv.Itoa(subId))
 				if ptr3 > -1 {
+				    ss := strings.Split(text, ",")
+					fmt.Println("." + ss[1])
+					ix,_ := strconv.Atoi(ss[1])
+					if (subsM[ix] != nil) {
+						fmt.Println("OK.")
+					}
 					prefixLen := len("U,"+strconv.Itoa(subId)) + 3
 					updInfo <- formatUpdMsg(text[prefixLen:])
 				}
@@ -150,6 +159,8 @@ func Subscribe(itemList string, fieldList string, mode string) int {
 		return -1
 	}
 
+	subsM[subId] = make(chan string, 100) 
+	
 	defer resp2.Body.Close()
 
 	return subId
@@ -216,5 +227,7 @@ func Connect(chEndStream chan<- bool) bool {
 	sessionId = <-chSsnId
 
 	streaming = resp
+	
+	subsM = make(map[int](chan string))
 	return true
 }
