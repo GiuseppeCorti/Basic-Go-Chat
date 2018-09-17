@@ -138,8 +138,8 @@ func main() {
 			conn_ok = LightstreamerClient.Connect(chEndStream)
 		}
 
-		LightstreamerClient.Subscribe("chat_room", "message timestamp IP", "DISTINCT")
-		go listen(LightstreamerClient.ListenUpdates())
+		sid := LightstreamerClient.Subscribe("chat_room", "message timestamp IP", "DISTINCT")
+		go listen(LightstreamerClient.ListenUpdates(sid))
 		send_flag = true
 		go checkinput()
 
