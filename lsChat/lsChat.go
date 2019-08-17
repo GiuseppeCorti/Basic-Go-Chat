@@ -1,11 +1,12 @@
 package main
 
 import (
-	"LightstreamerClient"
+	lightstreamerclient "LightstreamerClient"
 	"bufio"
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -61,7 +62,7 @@ func checkinput() {
 		if send_flag {
 			text := input.Text()
 			if len(text) > 0 {
-				LightstreamerClient.SendMessage(input.Text())
+				lightstreamerclient.SendMessage(input.Text())
 			}
 		}
 
@@ -126,20 +127,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	LightstreamerClient.Hostname = os.Args[1]
-	LightstreamerClient.LsAdapterSet = os.Args[2]
-	LightstreamerClient.LsDataAdapter = os.Args[3]
+	lightstreamerclient.Hostname = os.Args[1]
+	lightstreamerclient.LsAdapterSet = os.Args[2]
+	lightstreamerclient.LsDataAdapter = os.Args[3]
 
 	for {
 		chEndStream := make(chan bool)
 
 		var conn_ok = false
 		for conn_ok == false {
-			conn_ok = LightstreamerClient.Connect(chEndStream)
+			conn_ok = lightstreamerclient.Connect(chEndStream)
 		}
 
-		sid := LightstreamerClient.Subscribe("chat_room", "message timestamp IP", "DISTINCT")
-		go listen(LightstreamerClient.ListenUpdates(sid))
+		sid := lightstreamerclient.Subscribe("chat_room", "message timestamp IP", "DISTINCT")
+
+		fmt.Println("..." + strconv.FormatInt(int64(sid), 10))
+
+		go listen(lightstreamerclient.ListenUpdates())
 		send_flag = true
 		go checkinput()
 
