@@ -1,4 +1,4 @@
-package LightstreamerClient
+package lightstreamerclient
 
 import (
 	"bufio"
@@ -33,9 +33,6 @@ var deltaField2 string
 var deltaField0 string
 var updInfo chan string
 
-// Subscriptions Map
-var subsM map[int](chan string)
-
 func formatUpdMsg(upd string) string {
 	// ...
 	fields := strings.Split(upd, "|")
@@ -68,6 +65,9 @@ func readStream(strm *http.Response, chSsnId chan<- string, chEndStream chan<- b
 	updInfo = make(chan string, 100)
 	for scanner.Scan() {
 		text := scanner.Text()
+
+		fmt.Println("Raw Data: " + text)
+
 		ptr := strings.Index(text, "CONOK,")
 		if ptr > -1 {
 			chSsnId <- text[ptr+6 : 35]
@@ -78,15 +78,8 @@ func readStream(strm *http.Response, chSsnId chan<- string, chEndStream chan<- b
 			} else {
 				ptr3 := strings.Index(text, "U,"+strconv.Itoa(subId))
 				if ptr3 > -1 {
-				    ss := strings.Split(text, ",")
-					fmt.Println("." + ss[1])
-					ix,_ := strconv.Atoi(ss[1])
-					if (subsM[ix] != nil) {
-						fmt.Println("OK: " + strconv.Itoa(ix))
-					}
 					prefixLen := len("U,"+strconv.Itoa(subId)) + 3
-					//updInfo <- formatUpdMsg(text[prefixLen:])
-					subsM[ix] <- formatUpdMsg(text[prefixLen:])
+					updInfo <- formatUpdMsg(text[prefixLen:])
 				}
 			}
 		}
@@ -99,10 +92,9 @@ func readStream(strm *http.Response, chSsnId chan<- string, chEndStream chan<- b
 	fmt.Println("Stream End.")
 }
 
-func ListenUpdates(subId int) chan string {
+func ListenUpdates() chan string {
 
-	// return updInfo
-	return subsM[subId];
+	return updInfo
 
 }
 
@@ -113,7 +105,7 @@ func SendMessage(msg string) {
 	ctr.Add("LS_reqId", strconv.Itoa(reqId))
 	ctr.Add("LS_message", "CHAT|"+msg)
 
-	req3, err := http.NewRequest("POST", "http://"+Hostname+MessageUrl+protocolVersion, strings.NewReader(ctr.Encode()))
+	req3, err := http.NewRequest("POST", Hostname+MessageUrl+protocolVersion, strings.NewReader(ctr.Encode()))
 	req3.PostForm = ctr
 	req3.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{}
@@ -146,7 +138,7 @@ func Subscribe(itemList string, fieldList string, mode string) int {
 	sub.Add("LS_session", sessionId)
 	sub.Add("LS_reqId", strconv.Itoa(reqId))
 
-	req2, err := http.NewRequest("POST", "http://"+Hostname+ControlUrl+protocolVersion, strings.NewReader(sub.Encode()))
+	req2, err := http.NewRequest("POST", Hostname+ControlUrl+protocolVersion, strings.NewReader(sub.Encode()))
 	req2.PostForm = sub
 	req2.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{}
@@ -161,8 +153,6 @@ func Subscribe(itemList string, fieldList string, mode string) int {
 		return -1
 	}
 
-	subsM[subId] = make(chan string, 100) 
-	
 	defer resp2.Body.Close()
 
 	return subId
@@ -177,7 +167,7 @@ func Disconnect() bool {
 	destroy.Add("LS_session", sessionId)
 	destroy.Add("LS_reqId", strconv.Itoa(reqId))
 
-	reqD, err := http.NewRequest("POST", "http://"+Hostname+ControlUrl+protocolVersion, strings.NewReader(destroy.Encode()))
+	reqD, err := http.NewRequest("POST", Hostname+ControlUrl+protocolVersion, strings.NewReader(destroy.Encode()))
 	reqD.PostForm = destroy
 	reqD.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{}
@@ -196,12 +186,13 @@ func Disconnect() bool {
 
 func Connect(chEndStream chan<- bool) bool {
 
-	fmt.Fprintf(os.Stdout, "Try no. %d.", retryCount)
+	fmt.Fprintf(os.Stdout, "Try no. %d.\n", retryCount)
 
 	form := url.Values{}
 	form.Add("LS_adapter_set", LsAdapterSet)
 	form.Add("LS_cid", lsCid)
-	req, err := http.NewRequest("POST", "http://"+Hostname+ConnectionUrl+protocolVersion, strings.NewReader(form.Encode()))
+
+	req, err := http.NewRequest("POST", Hostname+ConnectionUrl+protocolVersion, strings.NewReader(form.Encode()))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.PostForm = form
 	if err != nil {
@@ -229,7 +220,5 @@ func Connect(chEndStream chan<- bool) bool {
 	sessionId = <-chSsnId
 
 	streaming = resp
-	
-	subsM = make(map[int](chan string))
 	return true
 }
