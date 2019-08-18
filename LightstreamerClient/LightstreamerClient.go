@@ -12,8 +12,11 @@ import (
 )
 
 const (
-	ConnectionUrl   = "/lightstreamer/create_session.txt?LS_protocol=" + protocolVersion
-	ControlUrl      = "/lightstreamer/control.txt?LS_protocol=" + protocolVersion
+	// ConnectionURL represents the TLCP protocl command for create session request
+	ConnectionURL = "/lightstreamer/create_session.txt?LS_protocol=" + protocolVersion
+
+	// ControlURL represents the TLCP protocl command for control request
+	ControlURL      = "/lightstreamer/control.txt?LS_protocol=" + protocolVersion
 	MessageUrl      = "/lightstreamer/msg.txt?LS_protocol=" + protocolVersion
 	protocolVersion = "TLCP-2.1.0"
 	lsCid           = "mgQkwtwdysogQz2BJ4Ji kOj2Bg"
@@ -138,7 +141,7 @@ func Subscribe(itemList string, fieldList string, mode string) int {
 	sub.Add("LS_session", sessionId)
 	sub.Add("LS_reqId", strconv.Itoa(reqId))
 
-	req2, err := http.NewRequest("POST", Hostname+ControlUrl+protocolVersion, strings.NewReader(sub.Encode()))
+	req2, err := http.NewRequest("POST", Hostname+ControlURL+protocolVersion, strings.NewReader(sub.Encode()))
 	req2.PostForm = sub
 	req2.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{}
@@ -167,7 +170,7 @@ func Disconnect() bool {
 	destroy.Add("LS_session", sessionId)
 	destroy.Add("LS_reqId", strconv.Itoa(reqId))
 
-	reqD, err := http.NewRequest("POST", Hostname+ControlUrl+protocolVersion, strings.NewReader(destroy.Encode()))
+	reqD, err := http.NewRequest("POST", Hostname+ControlURL+protocolVersion, strings.NewReader(destroy.Encode()))
 	reqD.PostForm = destroy
 	reqD.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{}
@@ -192,7 +195,7 @@ func Connect(chEndStream chan<- bool) bool {
 	form.Add("LS_adapter_set", LsAdapterSet)
 	form.Add("LS_cid", lsCid)
 
-	req, err := http.NewRequest("POST", Hostname+ConnectionUrl+protocolVersion, strings.NewReader(form.Encode()))
+	req, err := http.NewRequest("POST", Hostname+ConnectionURL+protocolVersion, strings.NewReader(form.Encode()))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.PostForm = form
 	if err != nil {
