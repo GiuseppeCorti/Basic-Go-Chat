@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 )
 
@@ -141,9 +140,9 @@ func main() {
 
 		sid := lightstreamerclient.Subscribe("chat_room", "message timestamp IP", "DISTINCT")
 
-		fmt.Println("..." + strconv.FormatInt(int64(sid), 10))
+		fmt.Println("..." + sid)
 
-		go listen(lightstreamerclient.ListenUpdates())
+		go listen(lightstreamerclient.ListenUpdates(sid))
 		send_flag = true
 		go checkinput()
 
