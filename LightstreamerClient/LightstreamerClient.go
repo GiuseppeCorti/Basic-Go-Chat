@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	lightstreamerclient "tlcpprotocolmanager"
 )
 
 const (
@@ -34,13 +35,33 @@ var subId = 1000
 var deltaField1 string
 var deltaField2 string
 var deltaField0 string
-var updInfo chan string
+var subs *lightstreamerclient.Subscriptions
+var updInfo [100]chan string
+
+func addSubs(newSub string, rdx *lightstreamerclient.Subscriptions) *lightstreamerclient.Subscriptions {
+	if rdx == nil {
+		rdx = new(lightstreamerclient.Subscriptions)
+		rdx.SubID = newSub
+		rdx.UpdInfo[1] = make(chan string)
+		rdx.Sx = nil
+		rdx.Dx = nil
+
+		return rdx
+	}
+	if strings.Compare(newSub, rdx.SubID) > 0 {
+		rdx.Sx = addSubs(newSub, rdx.Sx)
+	} else {
+		rdx.Dx = addSubs(newSub, rdx.Dx)
+	}
+
+	return rdx
+}
 
 func formatUpdMsg(upd string) string {
 	// ...
 	fields := strings.Split(upd, "|")
 	if len(fields) < 3 {
-		return "Update received malformed."
+		return "Update received malformed: " + upd
 	}
 
 	// Consider Delta Delivery
@@ -63,41 +84,28 @@ func formatUpdMsg(upd string) string {
 	return "Message from " + fields[2] + " at " + fields[1] + ": " + fields[0]
 }
 
-func readStream(strm *http.Response, chSsnId chan<- string, chEndStream chan<- bool) {
+func readStream(strm *http.Response, chSsnID chan<- string, chEndStream chan<- bool) error {
 	scanner := bufio.NewScanner(strm.Body)
-	updInfo = make(chan string, 100)
+	updInfo[1] = make(chan string, 100)
 	for scanner.Scan() {
 		text := scanner.Text()
 
-		fmt.Println("Raw Data: " + text)
+		fmt.Println("Raw Data Received: " + text)
 
-		ptr := strings.Index(text, "CONOK,")
-		if ptr > -1 {
-			chSsnId <- text[ptr+6 : 35]
-		} else {
-			ptr2 := strings.Index(text, "SUBOK,")
-			if ptr2 > -1 {
-				fmt.Println("SUBOK.")
-			} else {
-				ptr3 := strings.Index(text, "U,"+strconv.Itoa(subId))
-				if ptr3 > -1 {
-					prefixLen := len("U,"+strconv.Itoa(subId)) + 3
-					updInfo <- formatUpdMsg(text[prefixLen:])
-				}
-			}
-		}
-
+		lightstreamerclient.MessageHandler(text, chSsnID, subs)
 		// fmt.Print(" - " + text + "\n")
 	}
 
 	chEndStream <- true
-	close(updInfo)
+	close(updInfo[1])
 	fmt.Println("Stream End.")
+
+	return nil
 }
 
-func ListenUpdates() chan string {
+func ListenUpdates(sid string) chan string {
 
-	return updInfo
+	return lightstreamerclient.LookAtSubID(subs, sid, 1)
 
 }
 
@@ -128,12 +136,13 @@ func SendMessage(msg string) {
 
 }
 
-func Subscribe(itemList string, fieldList string, mode string) int {
+func Subscribe(itemList string, fieldList string, mode string) string {
 	subId++
+	sid := strconv.Itoa(subId)
 
 	sub := url.Values{}
 	sub.Add("LS_op", "add")
-	sub.Add("LS_subId", strconv.Itoa(subId))
+	sub.Add("LS_subId", sid)
 	sub.Add("LS_data_adapter", LsDataAdapter)
 	sub.Add("LS_group", itemList)
 	sub.Add("LS_schema", fieldList)
@@ -153,12 +162,14 @@ func Subscribe(itemList string, fieldList string, mode string) int {
 	if err != nil {
 		panic(err)
 
-		return -1
+		return ""
 	}
+
+	subs = addSubs(sid, subs)
 
 	defer resp2.Body.Close()
 
-	return subId
+	return sid
 }
 
 func Disconnect() bool {
