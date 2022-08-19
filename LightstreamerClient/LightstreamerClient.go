@@ -116,7 +116,7 @@ func SendMessage(msg string) {
 	ctr.Add("LS_reqId", strconv.Itoa(reqId))
 	ctr.Add("LS_message", "CHAT|"+msg)
 
-	req3, err := http.NewRequest("POST", Hostname+MessageUrl+protocolVersion, strings.NewReader(ctr.Encode()))
+	req3, err := http.NewRequest("POST", Hostname+MessageUrl, strings.NewReader(ctr.Encode()))
 	req3.PostForm = ctr
 	req3.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{}
@@ -150,7 +150,7 @@ func Subscribe(itemList string, fieldList string, mode string) string {
 	sub.Add("LS_session", sessionId)
 	sub.Add("LS_reqId", strconv.Itoa(reqId))
 
-	req2, err := http.NewRequest("POST", Hostname+ControlURL+protocolVersion, strings.NewReader(sub.Encode()))
+	req2, err := http.NewRequest("POST", Hostname+ControlURL, strings.NewReader(sub.Encode()))
 	req2.PostForm = sub
 	req2.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{}
@@ -181,7 +181,7 @@ func Disconnect() bool {
 	destroy.Add("LS_session", sessionId)
 	destroy.Add("LS_reqId", strconv.Itoa(reqId))
 
-	reqD, err := http.NewRequest("POST", Hostname+ControlURL+protocolVersion, strings.NewReader(destroy.Encode()))
+	reqD, err := http.NewRequest("POST", Hostname+ControlURL, strings.NewReader(destroy.Encode()))
 	reqD.PostForm = destroy
 	reqD.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{}
@@ -206,7 +206,7 @@ func Connect(chEndStream chan<- bool) bool {
 	form.Add("LS_adapter_set", LsAdapterSet)
 	form.Add("LS_cid", lsCid)
 
-	req, err := http.NewRequest("POST", Hostname+ConnectionURL+protocolVersion, strings.NewReader(form.Encode()))
+	req, err := http.NewRequest("POST", Hostname+ConnectionURL, strings.NewReader(form.Encode()))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.PostForm = form
 	if err != nil {
