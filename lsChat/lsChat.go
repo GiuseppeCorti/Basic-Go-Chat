@@ -1,9 +1,10 @@
 package main
 
 import (
-	lightstreamerclient "LightstreamerClient"
+	// lightstreamerclient "LightstreamerClient"
 	"bufio"
 	"fmt"
+	"lsChat/lsChat/lsChat/lightstreamer_client"
 	"net/http"
 	"os"
 	"strings"
@@ -61,7 +62,7 @@ func checkinput() {
 		if send_flag {
 			text := input.Text()
 			if len(text) > 0 {
-				lightstreamerclient.SendMessage(input.Text())
+				lightstreamer_client.SendMessage(input.Text())
 			}
 		}
 
@@ -116,8 +117,8 @@ func listen(upd chan string) {
 }
 
 func main() {
-	fmt.Printf("Hello, World!\n")
-	fmt.Printf("Test 1,2,3,4. Test.\n")
+	fmt.Printf(" ----- Chat Application based on Lightstreamer ----- \n")
+	fmt.Printf("Starting ... \n")
 
 	// var reqParams = []byte("lsAdapterSet=DEMO&LS_cid=mgQkwtwdysogQz2BJ4Ji%20kOj2Bg")
 
@@ -126,23 +127,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	lightstreamerclient.Hostname = os.Args[1]
-	lightstreamerclient.LsAdapterSet = os.Args[2]
-	lightstreamerclient.LsDataAdapter = os.Args[3]
+	lightstreamer_client.Hostname = os.Args[1]
+	lightstreamer_client.LsAdapterSet = os.Args[2]
+	lightstreamer_client.LsDataAdapter = os.Args[3]
 
 	for {
 		chEndStream := make(chan bool)
 
 		var conn_ok = false
 		for conn_ok == false {
-			conn_ok = lightstreamerclient.Connect(chEndStream)
+
+			var res = lightstreamer_client.ConnectWS();
+
+			if (res) {
+				fmt.Println("WS ok.")
+			}
+
+			conn_ok = lightstreamer_client.Connect(chEndStream)
 		}
 
-		sid := lightstreamerclient.Subscribe("chat_room", "message timestamp IP", "DISTINCT")
+		sid := lightstreamer_client.Subscribe("chat_room", "message timestamp IP", "DISTINCT")
 
-		fmt.Println("..." + sid)
+		fmt.Println("Lightstreamer session id: " + sid)
 
-		go listen(lightstreamerclient.ListenUpdates(sid))
+		go listen(lightstreamer_client.ListenUpdates(sid))
 		send_flag = true
 		go checkinput()
 
