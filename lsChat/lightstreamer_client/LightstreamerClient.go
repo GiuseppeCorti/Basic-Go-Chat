@@ -190,7 +190,7 @@ func Disconnect() bool {
 	destroy.Add("LS_session", sessionId)
 	destroy.Add("LS_reqId", strconv.Itoa(reqId))
 
-	reqD, err := http.NewRequest("POST", Hostname+ControlURL+protocolVersion, strings.NewReader(destroy.Encode()))
+	reqD, err := http.NewRequest("POST", Hostname+ControlURL, strings.NewReader(destroy.Encode()))
 	reqD.PostForm = destroy
 	reqD.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{}
