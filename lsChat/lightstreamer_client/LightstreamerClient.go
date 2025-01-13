@@ -41,7 +41,9 @@ var deltaField2 string
 var deltaField0 string
 var subs *tlcp_protocol.Subscriptions
 var updInfo [100]chan string
-var ws websocket.Conn
+var gws *websocket.Conn
+var err error
+var resetChan chan<- bool
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -102,7 +104,7 @@ func readStream(strm *http.Response, chSsnID chan<- string, chEndStream chan<- b
 
 		fmt.Println("Raw Data Received: " + text)
 
-		tlcp_protocol.MessageHandler(text, chSsnID, subs)
+		tlcp_protocol.MessageHandler(text, chSsnID, subs, resetChan)
 		// fmt.Print(" - " + text + "\n")
 	}
 
@@ -111,6 +113,29 @@ func readStream(strm *http.Response, chSsnID chan<- string, chEndStream chan<- b
 	fmt.Println("Stream End.")
 
 	return nil
+}
+
+func readMessages(conn *websocket.Conn, chSsnID chan<- string, chEndStream chan<- bool) {
+	for {
+		messageType, message, err := conn.ReadMessage()
+		if err != nil {
+			fmt.Println("Error reading message:", err)
+			chEndStream <- true
+
+			return
+		}
+
+		// Gestione del tipo di messaggio ricevuto
+		switch messageType {
+		case websocket.TextMessage:
+			fmt.Println("Received text message:", string(message))
+			tlcp_protocol.MessageHandler(string(message), chSsnID, subs, resetChan)
+		case websocket.BinaryMessage:
+			fmt.Println("Received binary message:", message)
+		default:
+			fmt.Println("Received other type of message")
+		}
+	}
 }
 
 func ListenUpdates(sid string) chan string {
@@ -144,6 +169,17 @@ func SendMessage(msg string) {
 
 	defer resp3.Body.Close()
 
+}
+
+func SubscribeWS(itemList string, fieldList string, mode string) {
+	subId++
+	sid := strconv.Itoa(subId)
+
+	msg := []byte("control\r\nLS_op=add&LS_subId=" + sid + "&LS_data_adapter=" + LsDataAdapter + "&LS_group=" + itemList + "&LS_schema=" + fieldList + "&LS_mode=" + mode + "&LS_reqId=" + strconv.Itoa(reqId))
+
+	fmt.Println("subscribe to send: " + string(msg))
+
+	gws.WriteMessage(websocket.TextMessage, msg)
 }
 
 func Subscribe(itemList string, fieldList string, mode string) string {
@@ -207,14 +243,17 @@ func Disconnect() bool {
 	return true
 }
 
-func ConnectWS() bool {
+func ConnectWS(chEndStream chan<- bool) bool {
 
 	fmt.Fprintf(os.Stdout, "WS ---- Try n. %d.\n", retryCount)
 
-	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "lightstreamer"}
+	host := strings.TrimPrefix(Hostname, "http://")
+	host = strings.TrimPrefix(host, "https://")
+
+	u := url.URL{Scheme: "wss", Host: host, Path: "lightstreamer"}
 
 	h := http.Header{}
-   	h.Set("Sec-Websocket-Protocol", "TLCP-2.4.0.lightstreamer.com")
+	h.Set("Sec-Websocket-Protocol", "TLCP-2.4.0.lightstreamer.com")
 
 	ws, _, err := websocket.DefaultDialer.Dial(u.String(), h)
 	if err != nil {
@@ -227,7 +266,26 @@ func ConnectWS() bool {
 
 	msg := []byte("create_session\r\nLS_cid=mgQkwtwdysogQz2BJ4Ji kOj2Bg&LS_adapter_set=DEMO")
 	ws.WriteMessage(websocket.TextMessage, msg)
-	
+
+	chnSsnId := make(chan string)
+
+	go readMessages(ws, chnSsnId, chEndStream)
+
+	fmt.Println("Waiting Session id ... ")
+
+	sessionId = <-chnSsnId
+
+	gws = ws
+
+	fmt.Println("Start keepalive timer ... ")
+
+	duration := 15 * 2 * time.Second // Durata configurabile del timer
+	rst := make(chan bool)
+
+	resetChan = rst
+
+	go startTimer(duration, rst, chEndStream)
+
 	return true
 }
 
@@ -266,6 +324,41 @@ func Connect(chEndStream chan<- bool) bool {
 
 	sessionId = <-chSsnId
 
+	fmt.Println("Start keepalive timer ... ")
+
+	duration := 5 * 2 * time.Second // Durata configurabile del timer
+	resetChan := make(chan bool)
+
+	go startTimer(duration, resetChan, chEndStream)
+
 	streaming = resp
 	return true
+}
+
+func startTimer(duration time.Duration, resetChan chan bool, closeSsn chan<- bool) {
+	timer := time.NewTimer(duration)
+
+	for {
+		select {
+		case <-timer.C:
+			// need to reconnect
+			fmt.Println("No probe received in the due time, stop client session.")
+
+			closeSsn <- true
+
+			// exit from the loop
+			return
+		case <-resetChan:
+			// Se ricevi un segnale di reset, fermiamo e resettiamo il timer
+			if !timer.Stop() {
+				<-timer.C // scarica il canale del timer se è già scaduto
+			}
+			timer.Reset(duration)
+			fmt.Println("Timer reset.")
+		}
+	}
+}
+
+func closeSession() {
+	panic("unimplemented")
 }

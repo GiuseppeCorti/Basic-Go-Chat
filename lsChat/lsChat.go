@@ -117,7 +117,7 @@ func listen(upd chan string) {
 }
 
 func main() {
-	fmt.Printf(" ----- Chat Application based on Lightstreamer ----- \n")
+	fmt.Printf(" ----- Chat Console application based on Lightstreamer ----- \n")
 	fmt.Printf("Starting ... \n")
 
 	// var reqParams = []byte("lsAdapterSet=DEMO&LS_cid=mgQkwtwdysogQz2BJ4Ji%20kOj2Bg")
@@ -137,20 +137,25 @@ func main() {
 		var conn_ok = false
 		for conn_ok == false {
 
-			var res = lightstreamer_client.ConnectWS();
+			var res = lightstreamer_client.ConnectWS(chEndStream)
 
-			if (res) {
+			if res {
 				fmt.Println("WS ok.")
-			}
 
-			conn_ok = lightstreamer_client.Connect(chEndStream)
+				conn_ok = true
+
+				lightstreamer_client.SubscribeWS("chat_room", "message timestamp IP", "DISTINCT")
+			} else {
+				conn_ok = lightstreamer_client.Connect(chEndStream)
+
+				sid := lightstreamer_client.Subscribe("chat_room", "message timestamp IP", "DISTINCT")
+
+				fmt.Println("Lightstreamer session id: " + sid)
+
+				go listen(lightstreamer_client.ListenUpdates(sid))
+			}
 		}
 
-		sid := lightstreamer_client.Subscribe("chat_room", "message timestamp IP", "DISTINCT")
-
-		fmt.Println("Lightstreamer session id: " + sid)
-
-		go listen(lightstreamer_client.ListenUpdates(sid))
 		send_flag = true
 		go checkinput()
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 type Subscriptions struct {
@@ -65,7 +66,7 @@ func formatUpdMsg(upd string) string {
 }
 
 // MessageHandler provides interpretation of received message as per TLCP protocol specifications.
-func MessageHandler(text string, chSsnID chan<- string, subsl *Subscriptions) error {
+func MessageHandler(text string, chSsnID chan<- string, subsl *Subscriptions, probe chan<- bool) error {
 
 	fmt.Println("Raw Data Received: " + text)
 
@@ -79,7 +80,8 @@ func MessageHandler(text string, chSsnID chan<- string, subsl *Subscriptions) er
 		return fmt.Errorf("void message")
 	}
 
-	switch tkns[0] {
+	checkCtrl := strings.TrimRightFunc(tkns[0], unicode.IsSpace)
+	switch checkCtrl {
 	case "CONOK":
 		if noTkns < 2 {
 			fmt.Println("Error in the received CONOK format.")
@@ -91,12 +93,12 @@ func MessageHandler(text string, chSsnID chan<- string, subsl *Subscriptions) er
 		chSsnID <- tkns[1]
 	case "SUBOK":
 		fmt.Println("SUBOK.")
-
 		// Read subscriptins parameters returned by the server and eventually apply them.
 	case "MSGDONE":
 		fmt.Println("." + text)
 	case "PROBE":
-		fmt.Println("P")
+		fmt.Println("Probe received from the server, restart keepalive timeout.")
+		probe <- true
 	case "U":
 		fmt.Println("Msg type: " + tkns[0] + ", subID: " + tkns[1] + ", Item No. " + tkns[2])
 
@@ -123,8 +125,7 @@ func MessageHandler(text string, chSsnID chan<- string, subsl *Subscriptions) er
 			}
 		}
 	default:
-		fmt.Println("Not recognized message, try to gon on.")
-
+		fmt.Println("Not recognized message, try to go on.")
 	}
 
 	return nil
